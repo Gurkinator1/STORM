@@ -5,6 +5,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct Config {
     pub makemkvcon_path: Option<PathBuf>,
+    pub ffmpeg_path: Option<PathBuf>,
     pub port: u16,
     pub devices: Vec<PathBuf>,
     pub keys: Keys,

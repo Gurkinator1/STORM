@@ -4,9 +4,10 @@ use eject::{device::Device, discovery::cd_drives};
 use std::path::PathBuf;
 use tokio::fs;
 
-use crate::{config::Config, makemkv::MakeMKV, worker::Worker};
+use crate::{config::Config, ffmpeg::Ffmpeg, makemkv::MakeMKV, worker::Worker};
 
 mod config;
+mod ffmpeg;
 mod makemkv;
 mod udev;
 mod worker;
@@ -53,6 +54,13 @@ async fn main() -> anyhow::Result<()> {
                 );
             } else {
                 println!("makemkv not found!");
+            }
+
+            //ffmpeg
+            if let Ok(fg) = Ffmpeg::new(&cfg.ffmpeg_path) {
+                println!("found ffmpeg: {}", fg.path.to_string_lossy());
+            } else {
+                println!("ffmpeg not found!");
             }
 
             //drives
