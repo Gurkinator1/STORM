@@ -1,9 +1,10 @@
-use std::{thread, time::Duration};
+use std::thread;
 
 mod udev;
 mod worker;
 
-fn main() {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     println!("Hello, world!");
 
     //init udev monitor
@@ -11,16 +12,18 @@ fn main() {
 
     let mut handles = Vec::new();
     for n in 0..5 {
-        let rx = mon.clone();
-        handles.push(thread::spawn(move || {
-            let msg = rx.recv().unwrap();
+        let mut rx = mon.subscribe();
+        handles.push(thread::spawn(async move || {
+            let msg = rx.recv().await.unwrap();
             println!("worker {} recvd: {}", n, msg);
         }));
     }
 
-    thread::sleep(Duration::from_secs(60));
+    println!("ready!");
 
     for handle in handles {
-        handle.join().unwrap();
+        handle.join().unwrap().await;
     }
+
+    Ok(())
 }

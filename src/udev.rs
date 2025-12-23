@@ -1,16 +1,28 @@
-use std::thread;
+use std::{sync::Arc, thread};
 
 use anyhow::{Ok, Result};
-use spmc::Receiver;
+use tokio::sync::broadcast;
 use udev::{
     MonitorBuilder,
     mio::{Events, Interest, Poll, Token},
 };
 
-pub fn monitor() -> anyhow::Result<Receiver<u8>> {
-    let (mut tx, rx) = spmc::channel::<u8>();
-    tx.send(5).unwrap();
+type Message = Arc<str>;
 
+#[derive(Clone)]
+pub struct EventBus {
+    tx: broadcast::Sender<Message>,
+}
+impl EventBus {
+    pub fn subscribe(&self) -> broadcast::Receiver<Message> {
+        self.tx.subscribe()
+    }
+}
+
+pub fn monitor() -> anyhow::Result<EventBus> {
+    let (tx, _rx) = broadcast::channel::<Message>(16);
+
+    let ltx = tx.clone();
     thread::spawn(move || -> Result<()> {
         let mut socket = MonitorBuilder::new()?
             .match_subsystem_devtype("block", "disk")?
@@ -28,13 +40,14 @@ pub fn monitor() -> anyhow::Result<Receiver<u8>> {
             for event in &events {
                 if event.token() == Token(0) && event.is_writable() {
                     socket.iter().for_each(|x| {
-                        println!("{}", x.devpath().to_str().unwrap());
-                        tx.send(5).unwrap();
+                        let str = x.devpath().to_str().unwrap();
+                        println!("{}", &str);
+                        ltx.send(Arc::from(str)).unwrap();
                     });
                 }
             }
         }
     });
 
-    return Ok(rx);
+    return Ok(EventBus { tx: tx });
 }

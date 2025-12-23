@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.100"
-spmc = "0.3.0"
+tokio = { version = "1.48.0", features = [ "full" ] }
 udev = { version = "0.9.3", features = [ "mio10" ] }
