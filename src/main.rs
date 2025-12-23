@@ -1,9 +1,10 @@
 use clap::{Parser, Subcommand};
 use directories::BaseDirs;
+use eject::{device::Device, discovery::cd_drives};
 use std::{path::PathBuf, thread};
 use tokio::fs;
 
-use crate::config::Config;
+use crate::{config::Config, worker::Worker};
 
 mod config;
 mod udev;
@@ -22,6 +23,7 @@ struct Args {
 enum Commands {
     Info,
     Serve,
+    Default,
 }
 
 #[tokio::main]
@@ -36,18 +38,50 @@ async fn main() -> anyhow::Result<()> {
     match &args.command {
         Commands::Info => {
             println!("config path: {}", config_path.to_string_lossy());
+            let cfg = get_config(&config_path).await;
+
+            let drives: Vec<PathBuf> = cd_drives().collect();
+            println!("detected drives: {}", drives.len());
+            for drive in drives {
+                println!(
+                    "[{}] {}",
+                    if cfg.contains_drive(&drive) { "*" } else { " " },
+                    drive.to_string_lossy()
+                );
+            }
         }
+        Commands::Default => {
+            fs::write(&config_path, include_bytes!("./default.toml"))
+                .await
+                .expect("failed to write default config");
+            println!("successfully written default config to:");
+            println!("{}", config_path.to_string_lossy());
+        }
+
         Commands::Serve => {
-            let config: Config = toml::from_str(
-                &fs::read_to_string(config_path)
-                    .await
-                    .expect("failed to read config file"),
-            )
-            .expect("config invalid");
+            let cfg = get_config(&config_path).await;
 
             //init udev monitor
             let mon = crate::udev::monitor().unwrap();
+
+            //init workers
+            let mut workers: Vec<Worker> = Vec::new();
+            for dev_path in cfg.devices {
+                let dev = Device::open(&dev_path)
+                    .expect(&format!("failed to open {}", dev_path.to_string_lossy()));
+
+                workers.push(Worker::new(mon.subscribe(), dev));
+            }
         }
     }
     Ok(())
+}
+
+async fn get_config(config_path: &PathBuf) -> Config {
+    toml::from_str(
+        &fs::read_to_string(config_path)
+            .await
+            .expect("failed to read config file"),
+    )
+    .expect("config invalid")
 }

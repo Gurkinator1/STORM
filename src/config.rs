@@ -1,7 +1,15 @@
+use std::path::PathBuf;
+
 use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Config {
-    port: u16,
-    devices: Vec<String>,
+    pub port: u16,
+    pub devices: Vec<PathBuf>,
+}
+
+impl Config {
+    pub fn contains_drive(&self, path: &PathBuf) -> bool {
+        self.devices.contains(path)
+    }
 }
