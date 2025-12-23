@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use directories::BaseDirs;
 use eject::{device::Device, discovery::cd_drives};
-use std::{path::PathBuf, thread};
+use std::path::PathBuf;
 use tokio::fs;
 
 use crate::{config::Config, worker::Worker};
@@ -70,7 +70,7 @@ async fn main() -> anyhow::Result<()> {
                 let dev = Device::open(&dev_path)
                     .expect(&format!("failed to open {}", dev_path.to_string_lossy()));
 
-                workers.push(Worker::new(mon.subscribe(), dev));
+                workers.push(Worker::new(mon.resubscribe(), dev));
             }
         }
     }

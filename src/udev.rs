@@ -1,26 +1,15 @@
 use std::{sync::Arc, thread};
 
 use anyhow::{Ok, Result};
-use tokio::sync::broadcast;
+use tokio::sync::broadcast::{self, Receiver};
 use udev::{
     MonitorBuilder,
     mio::{Events, Interest, Poll, Token},
 };
 
 type Message = Arc<str>;
-
-#[derive(Clone)]
-pub struct EventBus {
-    tx: broadcast::Sender<Message>,
-}
-impl EventBus {
-    pub fn subscribe(&self) -> broadcast::Receiver<Message> {
-        self.tx.subscribe()
-    }
-}
-
-pub fn monitor() -> anyhow::Result<EventBus> {
-    let (tx, _rx) = broadcast::channel::<Message>(16);
+pub fn monitor() -> anyhow::Result<Receiver<Message>> {
+    let (tx, rx) = broadcast::channel::<Message>(16);
 
     let ltx = tx.clone();
     thread::spawn(move || -> Result<()> {
@@ -49,5 +38,5 @@ pub fn monitor() -> anyhow::Result<EventBus> {
         }
     });
 
-    return Ok(EventBus { tx: tx });
+    return Ok(rx);
 }
