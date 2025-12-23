@@ -4,9 +4,10 @@ use eject::{device::Device, discovery::cd_drives};
 use std::path::PathBuf;
 use tokio::fs;
 
-use crate::{config::Config, worker::Worker};
+use crate::{config::Config, makemkv::MakeMKV, worker::Worker};
 
 mod config;
+mod makemkv;
 mod udev;
 mod worker;
 
@@ -28,6 +29,7 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    env_logger::init();
     let args = Args::parse();
 
     let config_path: PathBuf = args.config.unwrap_or_else(|| {
@@ -37,9 +39,23 @@ async fn main() -> anyhow::Result<()> {
 
     match &args.command {
         Commands::Info => {
+            //config
             println!("config path: {}", config_path.to_string_lossy());
             let cfg = get_config(&config_path).await;
 
+            //makemkv
+            if let Ok(mkv) = MakeMKV::new(&cfg.makemkvcon_path).await {
+                println!(
+                    "found makemkv: {}",
+                    mkv.path
+                        .map(|v| v.to_string_lossy().to_string())
+                        .unwrap_or("flatpak".to_string())
+                );
+            } else {
+                println!("makemkv not found!");
+            }
+
+            //drives
             let drives: Vec<PathBuf> = cd_drives().collect();
             println!("detected drives: {}", drives.len());
             for drive in drives {

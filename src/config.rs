@@ -4,8 +4,15 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Config {
+    pub makemkvcon_path: Option<PathBuf>,
     pub port: u16,
     pub devices: Vec<PathBuf>,
+    pub keys: Keys,
+}
+
+#[derive(Deserialize)]
+pub struct Keys {
+    pub tmdb: String,
 }
 
 impl Config {
