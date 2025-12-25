@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use directories::BaseDirs;
 use eject::{device::Device, discovery::cd_drives};
+use rocket::{Rocket, get, routes};
 use std::path::PathBuf;
 use tokio::fs;
 
@@ -96,6 +97,14 @@ async fn main() -> anyhow::Result<()> {
 
                 workers.push(Worker::new(mon.resubscribe(), dev));
             }
+
+            //startup webserver
+            let _ = build_rocket()
+                .ignite()
+                .await
+                .expect("Rocket failed to ignite")
+                .launch()
+                .await;
         }
     }
     Ok(())
@@ -108,4 +117,13 @@ async fn get_config(config_path: &PathBuf) -> Config {
             .expect("failed to read config file"),
     )
     .expect("config invalid")
+}
+
+fn build_rocket() -> rocket::Rocket<rocket::Build> {
+    Rocket::build().mount("/", routes![web_root])
+}
+
+#[get("/")]
+fn web_root() -> String {
+    "hello world!".to_string()
 }

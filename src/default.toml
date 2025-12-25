@@ -1,5 +1,4 @@
-# server port when running server subcommand
-port = 8080
+# server configuration can be done inside rocket.toml
 
 # makemkvcon_path = "custom path to makemkvcon"
 # ffmpeg_path = "custom path to ffmpeg"
