@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use log::info;
-use tokio::process::Command;
 use which::which;
 
 pub struct Ffmpeg {

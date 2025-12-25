@@ -1,7 +1,13 @@
-# server port
+# server port when running server subcommand
 port = 8080
+
+# makemkvcon_path = "custom path to makemkvcon"
+# ffmpeg_path = "custom path to ffmpeg"
 
 # devices to use
 devices = [
   "/dev/sr0"
 ]
+
+[keys]
+tmdb = "your-key"
