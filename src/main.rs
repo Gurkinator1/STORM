@@ -1,8 +1,9 @@
+use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use directories::BaseDirs;
 use eject::{device::Device, discovery::cd_drives};
 use rocket::{Rocket, get, routes};
-use std::path::PathBuf;
+use std::{path::PathBuf, process::exit};
 use tokio::fs;
 
 use crate::{config::Config, ffmpeg::Ffmpeg, makemkv::MakeMKV, worker::Worker};
@@ -92,10 +93,11 @@ async fn main() -> anyhow::Result<()> {
             //init workers
             let mut workers: Vec<Worker> = Vec::new();
             for dev_path in cfg.devices {
-                let dev = Device::open(&dev_path)
-                    .expect(&format!("failed to open {}", dev_path.to_string_lossy()));
-
-                workers.push(Worker::new(mon.resubscribe(), dev));
+                if let Ok(dev) = Device::open(&dev_path) {
+                    workers.push(Worker::new(mon.resubscribe(), dev));
+                } else {
+                    return Err(anyhow!("failed to open: {}", dev_path.to_string_lossy()));
+                }
             }
 
             //startup webserver
@@ -111,12 +113,20 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn get_config(config_path: &PathBuf) -> Config {
-    toml::from_str(
-        &fs::read_to_string(config_path)
-            .await
-            .expect("failed to read config file"),
-    )
-    .expect("config invalid")
+    match fs::read_to_string(config_path).await {
+        Ok(content) => match toml::from_str(&content) {
+            Ok(config) => return config,
+            Err(e) => {
+                println!("failed to parse config!");
+                println!("{}", e.message());
+                exit(-1);
+            }
+        },
+        Err(e) => {
+            println!("failed to open config file: {}", e);
+            exit(-1);
+        }
+    }
 }
 
 fn build_rocket() -> rocket::Rocket<rocket::Build> {
