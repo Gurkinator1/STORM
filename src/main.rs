@@ -2,11 +2,11 @@ use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use directories::BaseDirs;
 use eject::{device::Device, discovery::cd_drives};
-use rocket::{Rocket, get, routes};
-use std::{path::PathBuf, process::exit};
+use rocket::{Rocket, State, futures::future::join_all, get, routes, serde::json::Json};
+use std::{path::PathBuf, process::exit, vec};
 use tokio::fs;
 
-use crate::{config::Config, ffmpeg::Ffmpeg, makemkv::MakeMKV, worker::Worker};
+use crate::{config::Config, ffmpeg::Ffmpeg, makemkv::MakeMKV, worker::{Worker, WorkerState}};
 
 mod config;
 mod ffmpeg;
@@ -28,6 +28,10 @@ enum Commands {
     Info,
     Serve,
     Default,
+}
+
+struct AppState {
+    workers: Vec<Worker>
 }
 
 #[tokio::main]
@@ -93,15 +97,20 @@ async fn main() -> anyhow::Result<()> {
             //init workers
             let mut workers: Vec<Worker> = Vec::new();
             for dev_path in cfg.devices {
+                let dev_path_str = dev_path.to_string_lossy();
+                
                 if let Ok(dev) = Device::open(&dev_path) {
-                    workers.push(Worker::new(mon.resubscribe(), dev));
+                    workers.push(Worker::new(mon.resubscribe(), dev, &dev_path_str));
                 } else {
-                    return Err(anyhow!("failed to open: {}", dev_path.to_string_lossy()));
+                    return Err(anyhow!("failed to open: {}", dev_path_str));
                 }
             }
 
+
+
             //startup webserver
             let _ = build_rocket()
+            .manage(AppState {workers})
                 .ignite()
                 .await
                 .expect("Rocket failed to ignite")
@@ -130,10 +139,19 @@ async fn get_config(config_path: &PathBuf) -> Config {
 }
 
 fn build_rocket() -> rocket::Rocket<rocket::Build> {
-    Rocket::build().mount("/", routes![web_root])
+    Rocket::build()
+    .mount("/", routes![web_root])
+    .mount("/api", routes![web_api_status])
 }
 
 #[get("/")]
 fn web_root() -> String {
     "hello world!".to_string()
+}
+
+
+#[get("/status")]
+async fn web_api_status(state: &State<AppState>) -> Json<Vec<WorkerState>> {
+    let status = join_all(state.workers.iter().map(async |f| f.get_status().await)).await;
+    return Json(status);
 }

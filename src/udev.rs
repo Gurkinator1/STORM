@@ -3,13 +3,17 @@ use std::{sync::Arc, thread};
 use anyhow::{Ok, Result};
 use tokio::sync::broadcast::{self, Receiver};
 use udev::{
-    MonitorBuilder,
-    mio::{Events, Interest, Poll, Token},
+     EventType, MonitorBuilder, mio::{Events, Interest, Poll, Token}
 };
 
-type Message = Arc<str>;
-pub fn monitor() -> anyhow::Result<Receiver<Message>> {
-    let (tx, rx) = broadcast::channel::<Message>(16);
+#[derive(Debug)]
+pub struct UdevEvent {
+    pub dev: String,
+    pub event_type: EventType,
+}
+
+pub fn monitor() -> anyhow::Result<Receiver<Arc<UdevEvent>>> {
+    let (tx, rx) = broadcast::channel::<Arc<UdevEvent>>(16);
 
     let ltx = tx.clone();
     thread::spawn(move || -> Result<()> {
@@ -28,10 +32,10 @@ pub fn monitor() -> anyhow::Result<Receiver<Message>> {
             poll.poll(&mut events, None)?;
             for event in &events {
                 if event.token() == Token(0) && event.is_writable() {
-                    socket.iter().for_each(|x| {
-                        let str = x.devpath().to_str().unwrap();
-                        println!("{}", &str);
-                        ltx.send(Arc::from(str)).unwrap();
+                    socket.iter().for_each(|event| {
+                        let event_type = event.event_type();
+                        let dev = event.devnode().unwrap().to_string_lossy().to_string();
+                        ltx.send(Arc::from(UdevEvent {dev, event_type})).unwrap();
                     });
                 }
             }
