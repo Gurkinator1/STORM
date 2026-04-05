@@ -4,3 +4,12 @@
 
 
 VAAPI?
+# Requirements for WEB-UI
+- upload configuration of Handbrake
+- sidebar with these options:
+    - status
+    - settings
+        - Handbrake
+        - general
+        - 
+    - info
